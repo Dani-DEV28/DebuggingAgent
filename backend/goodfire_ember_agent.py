@@ -1,27 +1,6 @@
-#!/usr/bin/env python3
 # goodfire_ember_agent.py
 
-import sys
-import json
-import re
-
-# Simulated GoodFire classes for standalone operation
-class Response:
-    def __init__(self, text, state=None, followup_questions=None, requires_followup=False):
-        self.text = text
-        self.state = state or {}
-        self.followup_questions = followup_questions or []
-        self.requires_followup = requires_followup
-
-class ConversationState:
-    def __init__(self):
-        self.data = {}
-    
-    def get(self, key, default=None):
-        return self.data.get(key, default)
-    
-    def set(self, key, value):
-        self.data[key] = value
+from goodfire import Ember, Intent, Field, Response, ConversationState
 
 # --- Helper Functions for Symptom Matching ---
 def match_any(symptoms, keywords):
@@ -87,16 +66,21 @@ PATHWAYS = [
     # ... (Add more pathways for each symptom cluster as in your pseudo-code)
 ]
 
-# --- Main Medical Agent ---
-class GeneralPracticeSymptomAgent:
-    def __init__(self):
-        self.name = "general_practice_symptom_checker"
-        self.description = "Analyze symptoms, follow clinical pathways, ask follow-ups, and suggest diagnosis, tests, treatments, and follow-up."
+# --- Main Ember Agent ---
+class GeneralPracticeSymptomAgent(Ember):
+    intent = Intent(
+        name="general_practice_symptom_checker",
+        description="Analyze symptoms, follow clinical pathways, ask follow-ups, and suggest diagnosis, tests, treatments, and follow-up."
+    )
+    fields = [
+        Field("symptoms", str, required=True, description="Describe the symptoms the user is experiencing."),
+        Field("followup_answers", dict, required=False, description="Dictionary of answers to follow-up questions.")
+    ]
 
-    def handle(self, symptoms, followup_answers=None, state=None):
+    def handle(self, symptoms, followup_answers=None, state: ConversationState = None):
         s = symptoms.lower()
         followup_answers = followup_answers or {}
-        state = state or ConversationState()
+        state = state or {}
 
         # --- Pathway Matching ---
         for pathway in PATHWAYS:
@@ -125,12 +109,10 @@ class GeneralPracticeSymptomAgent:
         # (Add more follow-up logic for other clusters as needed)
 
         if followup_questions:
-            state.set("awaiting_followups", True)
+            state["awaiting_followups"] = True
             return Response(
                 text="To help narrow down the diagnosis, please answer the following questions:\n" + "\n".join(followup_questions),
-                state=state,
-                followup_questions=followup_questions,
-                requires_followup=True
+                state=state
             )
 
         # --- Default Response ---
@@ -149,35 +131,3 @@ class GeneralPracticeSymptomAgent:
         if "followup" in pathway:
             response += "Follow-up: " + ", ".join(pathway["followup"])
         return response
-
-def main():
-    if len(sys.argv) != 2:
-        print(json.dumps({"error": "Invalid arguments"}))
-        sys.exit(1)
-    
-    try:
-        input_data = json.loads(sys.argv[1])
-        symptoms = input_data.get("symptoms", "")
-        followup_answers = input_data.get("followupAnswers", {})
-        
-        agent = GeneralPracticeSymptomAgent()
-        response = agent.handle(symptoms, followup_answers)
-        
-        output = {
-            "text": response.text,
-            "followup_questions": response.followup_questions,
-            "requires_followup": response.requires_followup,
-            "state": response.state.data if hasattr(response.state, 'data') else {}
-        }
-        
-        print(json.dumps(output))
-        
-    except Exception as e:
-        error_output = {
-            "error": str(e),
-            "text": "I'm sorry, I encountered an error while analyzing your symptoms. Please try again or consult a healthcare professional."
-        }
-        print(json.dumps(error_output))
-
-if __name__ == "__main__":
-    main()

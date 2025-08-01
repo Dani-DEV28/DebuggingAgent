@@ -10,8 +10,6 @@ interface Message {
   text: string;
   isUser: boolean;
   timestamp: Date;
-  followupQuestions?: string[];
-  requiresFollowup?: boolean;
 }
 
 function App() {
@@ -25,8 +23,6 @@ function App() {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [currentSymptoms, setCurrentSymptoms] = useState('');
-  const [followupAnswers, setFollowupAnswers] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -49,54 +45,26 @@ function App() {
     };
 
     setMessages(prev => [...prev, userMessage]);
-    
-    // Store symptoms for potential follow-up
-    if (!currentSymptoms) {
-      setCurrentSymptoms(inputValue);
-    }
-    
     setInputValue('');
     setIsLoading(true);
 
-    try {
-      const response = await MedicalAgent.analyzeSymptoms(
-        currentSymptoms || inputValue, 
-        followupAnswers
-      );
-      
+    // Simulate API delay
+    setTimeout(() => {
+      const response = MedicalAgent.analyzeSymptoms(inputValue);
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: response.analysis,
+        text: response,
         isUser: false,
         timestamp: new Date(),
-        followupQuestions: response.followupQuestions,
-        requiresFollowup: response.requiresFollowup,
       };
 
       setMessages(prev => [...prev, botMessage]);
-      
-      // Reset follow-up answers if we got a final diagnosis
-      if (!response.requiresFollowup) {
-        setFollowupAnswers({});
-        setCurrentSymptoms('');
-      }
-    } catch (error) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: "I'm sorry, I encountered an error while analyzing your symptoms. Please try again or consult a healthcare professional directly.",
-        isUser: false,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
       setIsLoading(false);
-    }
+    }, 1500);
   };
 
   const handleSuggestionClick = (suggestion: string) => {
     setInputValue(suggestion);
-    setCurrentSymptoms('');
-    setFollowupAnswers({});
     inputRef.current?.focus();
   };
 
@@ -132,23 +100,12 @@ function App() {
           {/* Chat Messages */}
           <div className="h-96 overflow-y-auto p-6 space-y-4">
             {messages.map((message) => (
-              <div key={message.id}>
-                <ChatMessage
-                  message={message.text}
-                  isUser={message.isUser}
-                  timestamp={message.timestamp}
-                />
-                {message.followupQuestions && message.followupQuestions.length > 0 && (
-                  <div className="mt-3 ml-11 space-y-2">
-                    <p className="text-sm font-medium text-gray-700">Follow-up questions:</p>
-                    {message.followupQuestions.map((question, index) => (
-                      <div key={index} className="text-sm text-gray-600 bg-blue-50 p-2 rounded-lg border-l-4 border-blue-200">
-                        {question}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <ChatMessage
+                key={message.id}
+                message={message.text}
+                isUser={message.isUser}
+                timestamp={message.timestamp}
+              />
             ))}
             
             {isLoading && (
@@ -171,23 +128,13 @@ function App() {
 
           {/* Input Area */}
           <div className="border-t border-gray-200 p-4">
-            {currentSymptoms && (
-              <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-sm text-blue-800">
-                  <strong>Current symptoms:</strong> {currentSymptoms}
-                </p>
-                <p className="text-xs text-blue-600 mt-1">
-                  Provide additional details or answer follow-up questions to get a more accurate analysis.
-                </p>
-              </div>
-            )}
             <div className="flex gap-3">
               <textarea
                 ref={inputRef}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={currentSymptoms ? "Answer the follow-up questions or provide additional details..." : "Describe your symptoms in detail..."}
+                placeholder="Describe your symptoms in detail..."
                 className="flex-1 resize-none border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 rows={3}
                 disabled={isLoading}
@@ -204,19 +151,14 @@ function App() {
         </div>
 
         {/* Symptom Suggestions */}
-        {!currentSymptoms && (
-          <div className="mt-8">
-            <SymptomSuggestions onSuggestionClick={handleSuggestionClick} />
-          </div>
-        )}
+        <div className="mt-8">
+          <SymptomSuggestions onSuggestionClick={handleSuggestionClick} />
+        </div>
 
         {/* Footer */}
         <footer className="mt-12 text-center text-sm text-gray-500">
           <p>
             This tool is for educational purposes only. Always consult with healthcare professionals for medical advice.
-          </p>
-          <p className="mt-1 text-xs">
-            Backend powered by GoodFire AI • Frontend built with React & TypeScript
           </p>
         </footer>
       </div>
