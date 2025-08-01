@@ -16,13 +16,14 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Hello! I'm your medical consultation assistant powered by GoodFire AI. I can help analyze your symptoms and provide insights about potential conditions, recommended tests, and treatment options.\n\nPlease describe your symptoms in detail, and I'll do my best to assist you. Remember, this is for informational purposes only and should not replace professional medical advice.",
+      text: `Hello! I'm your medical consultation assistant powered by GoodFire AI. I can help analyze your symptoms and provide insights about potential conditions, recommended tests, and treatment options.\n\nPlease describe your symptoms in detail, and I'll do my best to assist you. Remember, this is for informational purposes only and should not replace professional medical advice.`,
       isUser: false,
       timestamp: new Date(),
     },
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -36,6 +37,7 @@ function App() {
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
+    setError(null);
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -44,23 +46,24 @@ function App() {
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
 
-    // Simulate API delay
-    setTimeout(() => {
-      const response = MedicalAgent.analyzeSymptoms(inputValue);
+    try {
+      const response = await MedicalAgent.analyzeSymptoms(userMessage.text);
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: response,
         isUser: false,
         timestamp: new Date(),
       };
-
-      setMessages(prev => [...prev, botMessage]);
+      setMessages((prev) => [...prev, botMessage]);
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred.');
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -68,7 +71,7 @@ function App() {
     inputRef.current?.focus();
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -76,7 +79,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-500 via-white to-indigo-500">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 py-4">
@@ -107,7 +110,6 @@ function App() {
                 timestamp={message.timestamp}
               />
             ))}
-            
             {isLoading && (
               <div className="flex gap-3 mb-6">
                 <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -122,9 +124,15 @@ function App() {
                 </div>
               </div>
             )}
-            
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mt-2 mx-4">
+              <span className="block sm:inline">{error}</span>
+            </div>
+          )}
 
           {/* Input Area */}
           <div className="border-t border-gray-200 p-4">
@@ -138,11 +146,13 @@ function App() {
                 className="flex-1 resize-none border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 rows={3}
                 disabled={isLoading}
+                aria-label="Describe your symptoms"
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!inputValue.trim() || isLoading}
                 className="self-end px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                aria-label="Send message"
               >
                 <Send className="w-5 h-5" />
               </button>
